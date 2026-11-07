@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Money Tracker</title>
+<style>
+:root {
+  --bg-color: #f4f6f9;
+  --card-bg: #ffffff;
+  --text-color: #333;
+  --primary: #4a90e2;
+  --income: #2ecc71;
+  --expense: #e74c3c;
+  --stats: #8e44ad;
+  --ai-purple: #8e44ad;
+}
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; display: flex; justify-content: center; }
+.container { width: 100%; max-width: 500px; }
+.card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+
+/* Auth Screen */
+#auth-screen { display: block; }
+#main-screen { display: none; }
+.register-only { display: none; }
+input, select { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+button:hover { opacity: 0.9; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: white; }
+
+/* Dashboard */
+.balance-box { text-align: center; }
+.balance-amount { font-size: 32px; font-weight: bold; margin: 10px 0; color: #2c3e50; }
+.balance-stats { display: flex; justify-content: space-between; font-size: 14px; color: #7f8c8d; }
+
+/* Action Buttons */
+.action-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+.btn-income { background: var(--income); color: white; }
+.btn-expense { background: var(--expense); color: white; }
+.btn-stats { background: var(--stats); color: white; }
+
+/* Dynamic Form & Statistics Box */
+#transaction-form, #stats-container { display: none; background: #fdfdfd; border: 1px solid #eee; }
+
+/* Category Section */
+.category-actions { display: flex; gap: 5px; margin-top: 10px; }
+
+/* Filter Controls */
+.filter-box { display: flex; gap: 10px; margin-bottom: 15px; }
+.filter-box select { margin: 0; font-size: 14px; padding: 8px; }
+
+/* Pagination Controls */
+.pagination-box { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; }
+.pagination-box button { width: auto; padding: 8px 16px; font-size: 14px; }
+.page-info { font-size: 14px; font-weight: 600; color: #666; }
+
+/* History & Stats List */
+.transaction-list, .stats-list { list-style: none; padding: 0; margin: 0; }
+.transaction-item, .stats-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+.transaction-item:last-child, .stats-item:last-child { border-bottom: none; }
+.item-details { display: flex; flex-direction: column; }
+.item-desc { font-weight: 500; }
+.item-cat-date { font-size: 12px; color: #95a5a6; margin-top: 2px; }
+.item-right-side { display: flex; align-items: center; gap: 10px; }
+.amount-income { color: var(--income); font-weight: bold; }
+.amount-expense { color: var(--expense); font-weight: bold; }
+
+.btn-action { background: none; border: none; cursor: pointer; padding: 4px 6px; font-size: 16px; width: auto; transition: transform 0.1s; }
+.btn-action:hover { transform: scale(1.15); }
+.btn-edit { color: #7f8c8d; }
+.btn-edit:hover { color: var(--primary); }
+.btn-delete { color: #7f8c8d; }
+.btn-delete:hover { color: var(--expense); }
+
+/* AI Chat Styles */
+.ai-card { border: 1px solid #e0d5f5; }
+.ai-chat-messages {
+  max-height: 250px;
+  min-height: 120px;
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+.ai-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.ai-msg-user {
+  align-self: flex-end;
+  background: var(--ai-purple);
+  color: white;
+  border-bottom-right-radius: 2px;
+}
+.ai-msg-bot {
+  align-self: flex-start;
+  background: #eef2f7;
+  color: #2c3e50;
+  border-bottom-left-radius: 2px;
+}
+.ai-chat-input-area {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+}
+.ai-chat-input-area input {
+  margin: 0;
+  font-size: 14px;
+  padding: 10px 12px;
+  flex: 1;
+}
+.ai-chat-input-area button {
+  width: auto;
+  padding: 8px 16px;
+  background: var(--ai-purple);
+  color: white;
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<div id="auth-screen" class="card">
+  <h2 id="auth-title">Log in</h2>
+  <input type="text" id="username" placeholder="Username">
+  <input type="password" id="password" placeholder="Password">
+  <div class="register-only">
+    <input type="text" id="name" placeholder="Your name">
+    <input type="email" id="email" placeholder="Email (you@gmail.com)">
+  </div>
+  <button id="auth-btn" class="btn-primary" onclick="handleAuth()">Log in</button>
+  <div style="text-align: center; margin-top: 15px;">
+    <span id="auth-toggle-text" style="font-size: 14px; color: #666;">No account yet?</span>
+    <button type="button" id="auth-toggle-btn" style="background: none; border: none; color: var(--primary); text-decoration: underline; cursor: pointer; width: auto; padding: 0; margin-left: 5px; font-size: 14px;" onclick="toggleAuthMode()">Sign up</button>
+  </div>
+</div>
+
+<div id="main-screen">
+  <div class="card balance-box">
+    <div>Current balance</div>
+    <div class="balance-amount" id="balance-val">0</div>
+    <div class="balance-stats">
+      <span>Income: <b id="total-inc" style="color:var(--income)">0</b></span>
+      <span>Expenses: <b id="total-exp" style="color:var(--expense)">0</b></span>
+    </div>
+    <div class="category-actions">
+      <input type="text" id="new-cat-name" placeholder="New expense category">
+      <button class="btn-primary" style="width: auto;" onclick="addCategory()">+</button>
+    </div>
+  </div>
+
+  <div class="action-buttons">
+    <button class="btn-income" onclick="openTransactionForm('income')">+ INCOME</button>
+    <button class="btn-expense" onclick="openTransactionForm('expense')">- EXPENSE</button>
+    <button class="btn-stats" onclick="toggleStatistics()">📊 STATISTICS</button>
+  </div>
+
+  <div id="stats-container" class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="margin: 0;">Spending this month</h3>
+      <button style="background: #bdc3c7; color: white; width: auto; padding: 4px 10px; font-size: 12px;" onclick="toggleStatistics()">Close</button>
+    </div>
+    <ul id="stats-list" class="stats-list"></ul>
+  </div>
+
+  <div class="card ai-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="margin: 0; color: var(--ai-purple); font-size: 18px;">🤖 AI Advisor</h3>
+      <button class="btn-primary" style="background: var(--ai-purple); width: auto; padding: 6px 12px; font-size: 13px;" onclick="getAiRecommendation()">💡 Get advice</button>
+    </div>
+    <div id="ai-chat-messages" class="ai-chat-messages">
+      <div class="ai-msg ai-msg-bot">Hi! I'm your financial assistant. Click "💡 Get advice" to analyze this month's spending, or ask a question below.</div>
+    </div>
+    <div class="ai-chat-input-area">
+      <input type="text" id="ai-input" maxlength="500" placeholder="Ask the AI a question..." onkeypress="if(event.key === 'Enter') sendAIMessage()">
+      <button onclick="sendAIMessage()">Send</button>
+    </div>
+  </div>
+
+  <div id="transaction-form" class="card">
+    <h3 id="form-title">Add transaction</h3>
+    <input type="hidden" id="tx-edit-id">
+    <input type="number" id="tx-amount" step="0.01" min="0.01" placeholder="Amount">
+    <input type="text" id="tx-desc" placeholder="Description">
+    <div id="category-select-block">
+      <label for="tx-category">Choose a category:</label>
+      <select id="tx-category"><option value="">-- No categories --</option></select>
+    </div>
+    <div class="action-buttons" style="margin-top: 10px;">
+      <button class="btn-primary" onclick="saveTransaction()">Save</button>
+      <button style="background:#bdc3c7; color:white;" onclick="closeForm()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Transaction history</h3>
+    <div class="filter-box">
+      <select id="filter-type" onchange="onFilterChange()">
+        <option value="">All types</option>
+        <option value="income">Income</option>
+        <option value="expense">Expenses</option>
+      </select>
+      <select id="filter-category" onchange="onFilterChange()">
+        <option value="">All categories</option>
+      </select>
+    </div>
+
+    <ul id="tx-history" class="transaction-list"></ul>
+
+    <div class="pagination-box">
+      <button id="btn-prev" class="btn-primary" onclick="changePage(-1)">← Previous</button>
+      <span class="page-info" id="page-number">Page 1</span>
+      <button id="btn-next" class="btn-primary" onclick="changePage(1)">Next →</button>
+    </div>
+  </div>
+
+  <button style="background: #e74c3c; color: white; margin-top: 10px;" onclick="logout()">Log out</button>
+</div>
+</div>
+
+<script>
+const API_URL = window.location.origin;
+const CURRENCY = "₸";  // change to "$", "€", "Ft" etc. if you like
+let token = localStorage.getItem("token") || "";
+let currentType = "income";
+let isRegisterMode = false;
+let currentTransactions = [];
+
+const PAGE_SIZE = 10;
+let currentPage = 1;
+
+if (token) {
+  showMainScreen();
+}
+
+/* Escape user-provided text before putting it into innerHTML,
+   so a category named <img onerror=...> is shown as text, not run as code. */
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/* Turn any error response into a readable message.
+   FastAPI returns JSON for errors it handles, but a crash (500) returns plain text,
+   so response.json() would throw. We read the body as text and parse it carefully. */
+async function readError(response, fallback) {
+  const text = await response.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch (e) { /* not JSON */ }
+
+  if (data && Array.isArray(data.detail)) {
+    return data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join("\n");
+  }
+  if (data && typeof data.detail === "string") {
+    return data.detail;
+  }
+  if (response.status >= 500) {
+    return `Server error (${response.status}). Check the server logs.`;
+  }
+  return fallback;
+}
+
+function money(value) {
+  return `${value} ${CURRENCY}`;
+}
+
+function toggleAuthMode() {
+  isRegisterMode = !isRegisterMode;
+  const title = document.getElementById("auth-title");
+  const authBtn = document.getElementById("auth-btn");
+  const toggleText = document.getElementById("auth-toggle-text");
+  const toggleBtn = document.getElementById("auth-toggle-btn");
+  const registerFields = document.querySelectorAll(".register-only");
+
+  if (isRegisterMode) {
+    title.innerText = "Sign up";
+    authBtn.innerText = "Sign up";
+    toggleText.innerText = "Already have an account?";
+    toggleBtn.innerText = "Log in";
+    registerFields.forEach(el => el.style.display = "block");
+  } else {
+    title.innerText = "Log in";
+    authBtn.innerText = "Log in";
+    toggleText.innerText = "No account yet?";
+    toggleBtn.innerText = "Sign up";
+    registerFields.forEach(el => el.style.display = "none");
+  }
+}
+
+async function handleAuth() {
+  if (isRegisterMode) {
+    await register();
+  } else {
+    await login();
+  }
+}
+
+async function register() {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  const name = document.getElementById("name").value.trim();
+  const email = document.getElementById("email").value.trim();
+
+  if (!username || !password || !name || !email) {
+    alert("Please fill in all fields.");
+    return;
+  }
+
+  const payload = { username, password, name, email };
+
+  try {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(await readError(response, "Registration failed"));
+    }
+
+    alert("Registration successful! Now log in.");
+    toggleAuthMode();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function login() {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  const formData = new FormData();
+  formData.append("username", username);
+  formData.append("password", password);
+
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(await readError(response, "Incorrect username or password"));
+    }
+
+    const data = await response.json();
+    token = data.access_token;
+    localStorage.setItem("token", token);
+    showMainScreen();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function showMainScreen() {
+  document.getElementById("auth-screen").style.display = "none";
+  document.getElementById("main-screen").style.display = "block";
+  updateDashboard();
+}
+
+async function updateDashboard() {
+  await getBalance();
+  await getCategories();
+  await getHistory();
+}
+
+async function getBalance() {
+  const res = await fetch(`${API_URL}/users/me/balance`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  if (res.status === 401) return logout();
+  const data = await res.json();
+  document.getElementById("balance-val").innerText = money(data.current_balance);
+  document.getElementById("total-inc").innerText = money(data.total_income);
+  document.getElementById("total-exp").innerText = money(data.total_expense);
+}
+
+async function getCategories() {
+  const res = await fetch(`${API_URL}/categories`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  const categories = await res.json();
+  const formSelect = document.getElementById("tx-category");
+  const filterSelect = document.getElementById("filter-category");
+  const selectedFilter = filterSelect.value;
+  formSelect.innerHTML = '<option value="">-- Choose a category --</option>';
+  filterSelect.innerHTML = '<option value="">All categories</option>';
+
+  categories.forEach(cat => {
+    const option = `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`;
+    formSelect.innerHTML += option;
+    filterSelect.innerHTML += option;
+  });
+  filterSelect.value = selectedFilter;
+}
+
+async function getHistory() {
+  const typeFilter = document.getElementById("filter-type").value;
+  const categoryFilter = document.getElementById("filter-category").value;
+  const offset = (currentPage - 1) * PAGE_SIZE;
+
+  let queryParams = new URLSearchParams({
+    limit: PAGE_SIZE,
+    offset: offset
+  });
+
+  if (typeFilter) queryParams.append("type", typeFilter);
+  if (categoryFilter) queryParams.append("category_id", categoryFilter);
+
+  const res = await fetch(`${API_URL}/transactions?${queryParams.toString()}`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+
+  const transactions = res.ok ? await res.json() : [];
+  currentTransactions = transactions;
+  const historyList = document.getElementById("tx-history");
+  historyList.innerHTML = "";
+
+  document.getElementById("btn-prev").disabled = (currentPage === 1);
+  document.getElementById("btn-next").disabled = (transactions.length < PAGE_SIZE);
+  document.getElementById("page-number").innerText = `Page ${currentPage}`;
+
+  if (transactions.length === 0) {
+    historyList.innerHTML = '<li style="color:#95a5a6;text-align:center;">No transactions found</li>';
+    return;
+  }
+
+  transactions.forEach(t => {
+    const isIncome = t.type === "income";
+    const amountClass = isIncome ? "amount-income" : "amount-expense";
+    const prefix = isIncome ? "+" : "-";
+    const catName = t.category ? t.category.name : "Income";
+    historyList.innerHTML += `
+      <li class="transaction-item">
+        <div class="item-details">
+          <span class="item-desc">${escapeHtml(catName)}</span>
+          <span class="item-cat-date">${escapeHtml(t.description)}</span>
+        </div>
+        <div class="item-right-side">
+          <span class="${amountClass}">${prefix}${money(t.amount)}</span>
+          <button class="btn-action btn-edit" title="Edit" onclick="editTransaction(${t.id})">✏️</button>
+          <button class="btn-action btn-delete" title="Delete" onclick="deleteTransaction(${t.id})">🗑️</button>
+        </div>
+      </li>
+    `;
+  });
+}
+
+/* TOGGLE & FETCH MONTHLY STATISTICS */
+async function toggleStatistics() {
+  const statsContainer = document.getElementById("stats-container");
+  if (statsContainer.style.display === "block") {
+    statsContainer.style.display = "none";
+  } else {
+    statsContainer.style.display = "block";
+    await loadStatistics();
+  }
+}
+
+async function loadStatistics() {
+  const statsList = document.getElementById("stats-list");
+  statsList.innerHTML = '<li style="color:#95a5a6;text-align:center;">Loading...</li>';
+
+  try {
+    const res = await fetch(`${API_URL}/statistics/monthly`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error(await readError(res, "Could not load statistics"));
+
+    const statsData = await res.json();
+    statsList.innerHTML = "";
+
+    if (!statsData || statsData.length === 0) {
+      statsList.innerHTML = '<li style="color:#95a5a6;text-align:center;">No expenses this month</li>';
+      return;
+    }
+
+    statsData.forEach(item => {
+      statsList.innerHTML += `
+        <li class="stats-item">
+          <span class="item-desc">${escapeHtml(item.name || "Uncategorized")}</span>
+          <span class="amount-expense">${money(item.total_spending)}</span>
+        </li>
+      `;
+    });
+  } catch (err) {
+    statsList.innerHTML = `<li style="color:var(--expense);text-align:center;">${escapeHtml(err.message)}</li>`;
+  }
+}
+
+/* AI ADVISOR FUNCTIONS */
+function appendChatMessage(sender, text) {
+  const chatMessages = document.getElementById("ai-chat-messages");
+  const msgDiv = document.createElement("div");
+  msgDiv.className = `ai-msg ${sender === 'user' ? 'ai-msg-user' : 'ai-msg-bot'}`;
+  msgDiv.textContent = text;
+  chatMessages.appendChild(msgDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+/* Shared by the "Get advice" button (no question) and the chat input (with a question). */
+async function askAI(question, loadingText) {
+  const loadingDiv = document.createElement("div");
+  loadingDiv.className = "ai-msg ai-msg-bot";
+  loadingDiv.id = "ai-loading";
+  loadingDiv.textContent = loadingText;
+  const chatMessages = document.getElementById("ai-chat-messages");
+  chatMessages.appendChild(loadingDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  try {
+    const res = await fetch(`${API_URL}/ai/chat`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt: question })
+    });
+
+    document.getElementById("ai-loading")?.remove();
+
+    if (!res.ok) {
+      appendChatMessage("bot", `⚠️ ${await readError(res, "Something went wrong while contacting the AI")}`);
+      return;
+    }
+
+    const data = await res.json();
+    appendChatMessage("bot", data.recommendation || "The AI returned no text.");
+  } catch (err) {
+    document.getElementById("ai-loading")?.remove();
+    appendChatMessage("bot", `⚠️ Connection error: ${err.message}`);
+  }
+}
+
+async function getAiRecommendation() {
+  appendChatMessage("user", "Analyze my finances for this month and give me some tips.");
+  await askAI(null, "⏳ Analyzing your data...");
+}
+
+async function sendAIMessage() {
+  const inputEl = document.getElementById("ai-input");
+  const userText = inputEl.value.trim();
+  if (!userText) return;
+
+  appendChatMessage("user", userText);
+  inputEl.value = "";
+  await askAI(userText, "⏳ Thinking...");
+}
+
+function onFilterChange() {
+  currentPage = 1;
+  getHistory();
+}
+
+function changePage(direction) {
+  currentPage += direction;
+  if (currentPage < 1) currentPage = 1;
+  getHistory();
+}
+
+function openTransactionForm(type, isEdit = false) {
+  currentType = type;
+  document.getElementById("transaction-form").style.display = "block";
+  if (!isEdit) {
+    document.getElementById("tx-edit-id").value = "";
+    document.getElementById("form-title").innerText = type === "income" ? "New income" : "New expense";
+  }
+  const catBlock = document.getElementById("category-select-block");
+  catBlock.style.display = type === "income" ? "none" : "block";
+}
+
+function editTransaction(id) {
+  const tx = currentTransactions.find(t => t.id === id);
+  if (!tx) return;
+
+  openTransactionForm(tx.type, true);
+
+  const isIncome = tx.type === "income";
+  document.getElementById("form-title").innerText = `Edit ${isIncome ? "income" : "expense"}`;
+  document.getElementById("tx-edit-id").value = tx.id;
+  document.getElementById("tx-amount").value = tx.amount;
+  document.getElementById("tx-desc").value = tx.description || "";
+  document.getElementById("tx-category").value = tx.category_id || "";
+}
+
+async function deleteTransaction(id) {
+  if (!confirm("Are you sure you want to delete this transaction?")) return;
+
+  try {
+    const res = await fetch(`${API_URL}/transactions/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (res.ok) {
+      updateDashboard();
+    } else {
+      alert(`Delete failed: ${await readError(res, "Could not delete the transaction")}`);
+    }
+  } catch (err) {
+    alert(`Network error: ${err.message}`);
+  }
+}
+
+function closeForm() {
+  document.getElementById("transaction-form").style.display = "none";
+  document.getElementById("tx-edit-id").value = "";
+  document.getElementById("tx-amount").value = "";
+  document.getElementById("tx-desc").value = "";
+  document.getElementById("tx-category").value = "";
+}
+
+async function saveTransaction() {
+  const editId = document.getElementById("tx-edit-id").value;
+  const amountVal = document.getElementById("tx-amount").value;
+  const description = document.getElementById("tx-desc").value.trim();
+  const categoryVal = document.getElementById("tx-category").value;
+
+  if (!amountVal || !description) {
+    alert("Please enter an amount and a description.");
+    return;
+  }
+
+  const isExpense = currentType === "expense";
+  const payload = {
+    amount: amountVal,  // sent as a string, so it never becomes a float; the API reads it as Decimal
+    type: currentType,
+    description: description,
+    category_id: (isExpense && categoryVal) ? parseInt(categoryVal) : null
+  };
+
+  const isEdit = Boolean(editId);
+  const url = isEdit ? `${API_URL}/transactions/${editId}` : `${API_URL}/transactions`;
+  const method = isEdit ? "PATCH" : "POST";
+
+  try {
+    const res = await fetch(url, {
+      method: method,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      closeForm();
+      updateDashboard();
+    } else {
+      alert(`Error: ${await readError(res, "Could not save the transaction")}`);
+    }
+  } catch (err) {
+    alert(`Network error: ${err.message}`);
+  }
+}
+
+async function addCategory() {
+  const catName = document.getElementById("new-cat-name").value.trim();
+  if (!catName) return alert("Enter a category name.");
+
+  const res = await fetch(`${API_URL}/categories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ name: catName })
+  });
+
+  if (res.ok) {
+    document.getElementById("new-cat-name").value = "";
+    updateDashboard();
+  } else {
+    alert(await readError(res, "Could not add the category"));
+  }
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  window.location.reload();
+}
+</script>
+
+</body>
+</html>
