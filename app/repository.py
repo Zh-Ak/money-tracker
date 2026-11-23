@@ -6,7 +6,8 @@ from app.schemas import CategoryType
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import calendar
-from fastapi import HTTPException
+from app.exceptions import CategoryNotFound, CategoryRequired
+
 
 # USER
 
@@ -135,7 +136,7 @@ class TransactionsRepository:
         if date_from:
             query = query.filter(Transaction.created_at >= date_from)
 
-        if date_to:  # inclusive: everything before the start of the next day
+        if date_to:  
             query = query.filter(Transaction.created_at < date_to + timedelta(days=1))
 
         return query.offset(offset).limit(limit).all()
@@ -156,13 +157,12 @@ class TransactionsRepository:
 
         if new_type == CategoryType.EXPENSE:
             if not new_category_id:
-                raise HTTPException(status_code=400, detail="Expense requires a category")
+                raise CategoryRequired()
             category = db.query(Category).filter(
-                Category.id == new_category_id,
-                Category.user_id == user_id
+                Category.id == new_category_id, Category.user_id == user_id
             ).first()
             if not category:
-                raise HTTPException(status_code=404, detail="Category not found or doesn't belong to you")
+                raise CategoryNotFound()
         else:
             update_data["category_id"] = None 
 
@@ -191,10 +191,11 @@ class TransactionsRepository:
     def get_monthly_category_spendings(self, db: Session, user_id: int):
         now = datetime.now(timezone.utc)
     
-        start_of_month = datetime(now.year, now.month, 1)
+        start_of_month = datetime(now.year, now.month, 1) 
 
         _, last_day = calendar.monthrange(now.year, now.month)
         end_of_month = datetime(now.year, now.month, last_day, 23, 59, 59)
+
 
         return (
         db.query(
@@ -218,7 +219,7 @@ class TransactionsRepository:
         results = (
             db.query(
                 Transaction.type,
-                func.coalesce(func.sum(Transaction.amount), 0).label("total")
+                func.coalesce(func.sum(Transaction.amount), 0).label("total") 
             )
             .filter(Transaction.user_id == user_id)
             .group_by(Transaction.type)
@@ -234,7 +235,7 @@ class TransactionsRepository:
             elif row.type == CategoryType.EXPENSE:
                 total_expense = row.total
 
-        return {
+        return { 
             "total_income": total_income,
             "total_expense": total_expense,
             "current_balance": total_income - total_expense

@@ -8,6 +8,8 @@ from app.repository import TransactionsRepository, CategoriesRepository
 from app.schemas import CreateTransaction, PostTransaction, TransactionResponse, UpdateTransaction
 from app.schemas import CategoryType
 from app.security import get_current_user_id
+from app.exceptions import CategoryNotFound, CategoryRequired
+
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 transactions_repo = TransactionsRepository()
@@ -65,7 +67,12 @@ def patch_transaction(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
-    updated_tx = transactions_repo.update_transaction(db, user_id, id, transaction)
+    try:
+        updated_tx = transactions_repo.update_transaction(db, user_id, id, transaction)
+    except CategoryRequired:
+        raise HTTPException(status_code=400, detail="Expense requires a category")
+    except CategoryNotFound:
+        raise HTTPException(status_code=404, detail="Category not found or doesn't belong to you")
 
     if not updated_tx:
         raise HTTPException(
